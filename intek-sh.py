@@ -61,17 +61,9 @@ def run_file(argv):
     else:
         if 'PATH' in os.environ:  # check 'PATH' in environment
             paths = os.environ['PATH'].split(':')
-            check = 0
-            for path in paths:
-                if os.path.exists(path + '/' + argv[0]):  # find argv in 'PATH'
-                    argv[0] = path + '/' + argv[0]
-                    check = 1
-                    try:
-                        subprocess.run(argv)  # run argv
-                    except PermissionError:
-                        print('intek-sh: ' + argv[0] + ': Permission denied')
-                    break
-            if check == 0:
+            try:
+                subprocess.run(argv)  # run argv
+            except FileNotFoundError:
                 print('intek-sh: ' + argv[0] + ': command not found')
         else:
             print('intek-sh: ' + argv[0] + ': command not found')
