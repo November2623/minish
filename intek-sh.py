@@ -4,77 +4,99 @@ import subprocess
 
 
 def check_command(argv):
-    if argv in ['cd', 'printenv', 'export', 'unset', 'exit', 'pwd']:
+    if argv in ['cd', 'printenv', 'export', 'unset', 'exit']:
         return True
     else:
         return False
 
 
 def change_path(argv):
-    if len(argv) == 1:
+    if len(argv) == 1 and 'HOME' in os.environ:
         os.chdir(os.environ['HOME'])
-    else:
+        # changes the current working directory to the given path
+    elif len(argv) > 1:
         path = os.path.abspath(argv[1])
-        if argv[1] == '$HOME':
-            os.chdir(os.environ['HOME'])
-        elif os.path.isdir(path):
+        if os.path.isdir(path):
             os.chdir(path)
-        elif os.path.isfile(path):
-            print('-bash: cd:' + argv[1] + ': Not a directory')
-        else:
-            print('-bash: cd:' + argv[1] + ': No such file or directory')
+    elif 'HOME' not in os.environ:  # check 'HOME' in environment
+        print('intek-sh: cd: HOME not set')
 
 
 def printenv_value(list):
-    if len(list) == 1:
+    if len(list) == 1:  # $printenv : print all environment.
         for key in os.environ.keys():
             print(key + '=' + os.environ[key])
     else:
-        for key in list [1:]:
+        for key in list[1:]:  # print with key environment.
             if key in os.environ:
                 print(os.environ[key])
+
+
 def set_env(list):
-    if len(list) == 1:
-        print(1)
-    else:
+    if len(list) > 1:
         for item in list[1:]:
-            key = item.split('=')[0]
-            value = item.split('=')[1]
-            os.environ[key] = value
+            if '=' in item:
+                key = item.split('=')[0]  # get key environment
+                value = item.split('=')[1]  # get value environment.
+                os.environ[key] = value  # set environment
+            else:
+                os.environ[item] = ""  # if export c return c = ''
+
 
 def unset_env(list):
     if len(list) != 1:
         for key in list[1:]:
             if key in os.environ.keys():
-                del os.environ[key]
+                del os.environ[key]  # delete environment
 
 
 def run_file(argv):
-    if os.access(argv[0][2:], os.X_OK):
-        args_sub = args.append(argv[0])
-        for args in argv[1:]:
-            args_sub.append(args)
-        subprocess.Popen(args_sub)
+    if '.' in argv[0]:  # run file
+        try:
+            subprocess.run(argv)
+        except FileNotFoundError:
+            print('intek-sh: ' + argv[0] + ': command not found')
+        except PermissionError:
+            print('intek-sh: ' + argv[0] + ': Permission denied')
     else:
-        print('Permission denied')
+        if 'PATH' in os.environ:  # check 'PATH' in environment
+            paths = os.environ['PATH'].split(':')
+            check = 0
+            for path in paths:
+                if os.path.exists(path + '/' + argv[0]):  # find argv in 'PATH'
+                    argv[0] = path + '/' + argv[0]
+                    check = 1
+                    try:
+                        subprocess.run(argv)  # run argv
+                    except PermissionError:
+                        print('intek-sh: ' + argv[0] + ': Permission denied')
+                    break
+            if check == 0:
+                print('intek-sh: ' + argv[0] + ': command not found')
+        else:
+            print('intek-sh: ' + argv[0] + ': command not found')
 
 
+def exit(argv):  # exit
+    print('exit')
+    if len(argv[1:]) > 0:
+        if argv[1] not in '0123456789':
+            print('intek-sh: exit:', end='')
+            print(' '.join(argv[1:]))
 
 
 def main():
-    command = ''
-    while command != 'exit':
-        argv = input('intek-sh$').split(' ')
-        argv = [x for x in argv if x]
-        if len(argv) != 0:
-            if not check_command(argv[0]):
-                print(argv[0] + ': command not found')
-            else:
+    command = None
+    try:
+        while command != 'exit':
+            argv = input('intek-sh$ ').split(' ')
+            argv = [x for x in argv if x]  # delete none in list.
+            if len(argv) != 0:
                 command = argv[0]
-                if command == 'cd':
+                if not (check_command(argv[0])):
+                    run_file(argv)
+                elif command == 'cd':
                     change_path(argv)
-                elif command == 'pwd':
-                    print(os.getcwd())
                 elif command == 'printenv':
                     printenv_value(argv)
                 elif command == 'export':
@@ -82,7 +104,9 @@ def main():
                 elif command == 'unset':
                     unset_env(argv)
                 elif command == 'exit':
-                    exit()
+                    exit(argv)
+    except EOFError:
+        pass
 
 
 if __name__ == '__main__':
